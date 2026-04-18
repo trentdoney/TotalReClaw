@@ -53,13 +53,14 @@
     <rect x="0" y="0" width="320" height="360" rx="26" fill="#F6FBFA" stroke="#1D8C8B" stroke-width="2.5"/>
     <circle cx="66" cy="64" r="34" fill="#DBF1EE" stroke="#1D8C8B" stroke-width="2.5"/>
     <text x="55" y="74" fill="#1D8C8B" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">4</text>
-    <text x="48" y="132" fill="#101114" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="700">Accept Durable Memory</text>
-    <text x="48" y="174" fill="#466C69" font-family="Inter, Arial, sans-serif" font-size="20">Approved records and session</text>
-    <text x="48" y="202" fill="#466C69" font-family="Inter, Arial, sans-serif" font-size="20">summaries become searchable</text>
-    <text x="48" y="230" fill="#466C69" font-family="Inter, Arial, sans-serif" font-size="20">SQLite-backed memory.</text>
-    <rect x="48" y="274" width="234" height="52" rx="14" fill="#13201F"/>
-    <text x="70" y="307" fill="#8DDBD4" font-family="IBM Plex Mono, monospace" font-size="18">capture --accept draft</text>
-    <text x="48" y="348" fill="#69488D" font-family="Arial Narrow, Arial, sans-serif" font-size="24" font-style="italic">*deliberate persistence*</text>
+    <text x="48" y="132" fill="#101114" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="700">Accept Into</text>
+    <text x="48" y="168" fill="#101114" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="700">Durable Memory</text>
+    <text x="48" y="210" fill="#466C69" font-family="Inter, Arial, sans-serif" font-size="20">Approved records and</text>
+    <text x="48" y="238" fill="#466C69" font-family="Inter, Arial, sans-serif" font-size="20">session summaries become</text>
+    <text x="48" y="266" fill="#466C69" font-family="Inter, Arial, sans-serif" font-size="20">searchable SQLite memory.</text>
+    <rect x="48" y="284" width="248" height="52" rx="14" fill="#13201F"/>
+    <text x="68" y="317" fill="#8DDBD4" font-family="IBM Plex Mono, monospace" font-size="16">capture --accept &lt;draft&gt;</text>
+    <text x="48" y="351" fill="#69488D" font-family="Arial Narrow, Arial, sans-serif" font-size="18" font-style="italic">*approved only*</text>
   </g>
 
   <path d="M414 430H454" stroke="#26323C" stroke-width="3" marker-end="url(#flowArrow)"/>
