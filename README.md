@@ -4,6 +4,8 @@
 [![License](https://img.shields.io/github/license/trentdoney/TotalReClaw)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D22-339933?logo=nodedotjs&logoColor=white)](package.json)
 
+![TotalReClaw header](docs/images/totalreclaw-header.svg)
+
 TotalReClaw is an OpenClaw plugin plus skill that gives an agent durable operational memory. It recalls prior fixes, decisions, procedures, blockers, environment state, and accepted session summaries before work repeats itself.
 
 OpenClaw is a tool-using agent runtime that can load local skills and plugins, so TotalReClaw is designed to sit directly in the operator loop instead of acting as a separate memory service.
@@ -11,6 +13,10 @@ OpenClaw is a tool-using agent runtime that can load local skills and plugins, s
 It is built for operator workflows where "what did we already learn?" matters as much as the next command.
 
 Status: alpha. The install path, storage model, commands, and automatic hooks are in place. Expect breaking changes before `1.0.0` while the project broadens host validation and release coverage.
+
+## Origin
+
+TotalReClaw was first built as a four-person hackathon collaboration in Phoenix, Arizona, then hardened into the public release in this repository.
 
 ## What it does
 
@@ -107,6 +113,12 @@ Use `capture` when you have a durable lesson worth keeping:
 - an environment fact that keeps tripping operators
 
 Use `session close` when a working session produced useful context and you want a reviewable summary draft instead of losing it.
+
+## Visual overview
+
+![TotalReClaw architecture](docs/images/totalreclaw-architecture.svg)
+
+![TotalReClaw workflow](docs/images/totalreclaw-workflow.svg)
 
 ## Example workflows
 

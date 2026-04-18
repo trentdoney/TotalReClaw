@@ -1,0 +1,82 @@
+<svg width="1600" height="900" viewBox="0 0 1600 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0 0L10 5L0 10V0Z" fill="#2E3842"/>
+    </marker>
+  </defs>
+
+  <rect width="1600" height="900" fill="#ECE7DD"/>
+
+  <text x="86" y="96" fill="#111111" font-family="Georgia, serif" font-size="56" font-style="italic">TotalReClaw Architecture</text>
+  <text x="92" y="138" fill="#4B4B4B" font-family="Georgia, serif" font-size="24">Review-first operational memory for OpenClaw</text>
+
+  <g>
+    <rect x="86" y="210" width="290" height="150" rx="22" fill="#FBFAF7" stroke="#2E3842" stroke-width="2.5"/>
+    <text x="116" y="262" fill="#161A20" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="700">Prompt Input</text>
+    <text x="116" y="294" fill="#596470" font-family="Inter, Arial, sans-serif" font-size="18">Install, restart, config</text>
+    <text x="116" y="320" fill="#596470" font-family="Inter, Arial, sans-serif" font-size="18">change, or repeated</text>
+    <text x="116" y="346" fill="#596470" font-family="Inter, Arial, sans-serif" font-size="18">failure investigation.</text>
+  </g>
+
+  <g>
+    <rect x="438" y="210" width="320" height="150" rx="22" fill="#FFF8F2" stroke="#9A5B3E" stroke-width="2.5"/>
+    <text x="468" y="258" fill="#161A20" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">before_prompt_build</text>
+    <text x="468" y="294" fill="#6F5A4E" font-family="Inter, Arial, sans-serif" font-size="18">Runs bounded recall before</text>
+    <text x="468" y="320" fill="#6F5A4E" font-family="Inter, Arial, sans-serif" font-size="18">the agent continues with</text>
+    <text x="468" y="346" fill="#6F5A4E" font-family="Inter, Arial, sans-serif" font-size="18">risky work.</text>
+  </g>
+
+  <g>
+    <rect x="820" y="210" width="320" height="150" rx="22" fill="#F6FBFA" stroke="#1D8C8B" stroke-width="2.5"/>
+    <text x="850" y="262" fill="#161A20" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="700">Reference Context</text>
+    <text x="850" y="294" fill="#376E6B" font-family="Inter, Arial, sans-serif" font-size="18">Prior fixes, decisions,</text>
+    <text x="850" y="320" fill="#376E6B" font-family="Inter, Arial, sans-serif" font-size="18">blockers, and accepted</text>
+    <text x="850" y="346" fill="#376E6B" font-family="Inter, Arial, sans-serif" font-size="18">session summaries.</text>
+  </g>
+
+  <g>
+    <rect x="1202" y="210" width="312" height="150" rx="22" fill="#F7F4FB" stroke="#69488D" stroke-width="2.5"/>
+    <text x="1232" y="262" fill="#161A20" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="700">Accepted Memory</text>
+    <text x="1232" y="294" fill="#5E4E73" font-family="Inter, Arial, sans-serif" font-size="18">SQLite-backed durable</text>
+    <text x="1232" y="320" fill="#5E4E73" font-family="Inter, Arial, sans-serif" font-size="18">records and accepted</text>
+    <text x="1232" y="346" fill="#5E4E73" font-family="Inter, Arial, sans-serif" font-size="18">session summaries.</text>
+  </g>
+
+  <path d="M376 285H438" stroke="#2E3842" stroke-width="3" marker-end="url(#arrow)"/>
+  <path d="M758 285H820" stroke="#2E3842" stroke-width="3" marker-end="url(#arrow)"/>
+  <path d="M1140 285H1202" stroke="#2E3842" stroke-width="3" marker-end="url(#arrow)"/>
+
+  <g>
+    <rect x="160" y="486" width="360" height="170" rx="22" fill="#FBFAF7" stroke="#2E3842" stroke-width="2.5"/>
+    <text x="192" y="540" fill="#161A20" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="700">agent_end Capture</text>
+    <text x="192" y="576" fill="#596470" font-family="Inter, Arial, sans-serif" font-size="18">Collects commands, files,</text>
+    <text x="192" y="602" fill="#596470" font-family="Inter, Arial, sans-serif" font-size="18">tools, and notable text into</text>
+    <text x="192" y="628" fill="#596470" font-family="Inter, Arial, sans-serif" font-size="18">a session accumulator.</text>
+  </g>
+
+  <g>
+    <rect x="620" y="486" width="360" height="170" rx="22" fill="#F6FBFA" stroke="#1D8C8B" stroke-width="2.5"/>
+    <text x="652" y="540" fill="#161A20" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="700">Review Draft Layer</text>
+    <text x="652" y="576" fill="#376E6B" font-family="Inter, Arial, sans-serif" font-size="18">Manual capture and</text>
+    <text x="652" y="602" fill="#376E6B" font-family="Inter, Arial, sans-serif" font-size="18">session close create</text>
+    <text x="652" y="628" fill="#376E6B" font-family="Inter, Arial, sans-serif" font-size="18">reviewable JSON drafts.</text>
+  </g>
+
+  <g>
+    <rect x="1080" y="486" width="360" height="170" rx="22" fill="#FFF8F2" stroke="#9A5B3E" stroke-width="2.5"/>
+    <text x="1112" y="540" fill="#161A20" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="700">Operator Approval</text>
+    <text x="1112" y="576" fill="#6F5A4E" font-family="Inter, Arial, sans-serif" font-size="18">Accept, reject, explain, or</text>
+    <text x="1112" y="602" fill="#6F5A4E" font-family="Inter, Arial, sans-serif" font-size="18">resolve conflicts before</text>
+    <text x="1112" y="628" fill="#6F5A4E" font-family="Inter, Arial, sans-serif" font-size="18">memory is written back.</text>
+  </g>
+
+  <path d="M520 571H620" stroke="#2E3842" stroke-width="3" marker-end="url(#arrow)"/>
+  <path d="M980 571H1080" stroke="#2E3842" stroke-width="3" marker-end="url(#arrow)"/>
+  <path d="M1260 486V394" stroke="#2E3842" stroke-width="3" marker-end="url(#arrow)"/>
+
+  <text x="90" y="756" fill="#69488D" font-family="Arial Narrow, Arial, sans-serif" font-size="25" font-style="italic">*bounded recall*</text>
+  <text x="350" y="756" fill="#69488D" font-family="Arial Narrow, Arial, sans-serif" font-size="25" font-style="italic">*review first*</text>
+  <text x="582" y="756" fill="#69488D" font-family="Arial Narrow, Arial, sans-serif" font-size="25" font-style="italic">*explicit acceptance*</text>
+
+  <text x="90" y="820" fill="#2E3842" font-family="Inter, Arial, sans-serif" font-size="20">The product boundary is deliberate: recall can inform the next step, but only an operator can promote memory into durable storage.</text>
+</svg>
