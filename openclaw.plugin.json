@@ -2,7 +2,7 @@
   "id": "totalreclaw",
   "name": "TotalReClaw",
   "description": "OpenClaw-native operational memory that recalls prior records and session context before work repeats itself.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": "Trent Doney",
   "license": "MIT",
   "homepage": "https://github.com/trentdoney/TotalReClaw",

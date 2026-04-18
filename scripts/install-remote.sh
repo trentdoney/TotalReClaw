@@ -75,7 +75,7 @@ config.plugins.installs.totalreclaw = {
   spec: remoteExtDir,
   sourcePath: remoteExtDir,
   installPath: remoteExtDir,
-  version: '0.1.0',
+  version: '0.2.0',
   resolvedSpec: remoteExtDir,
   installedAt: new Date().toISOString()
 };

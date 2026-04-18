@@ -156,6 +156,7 @@ export {
   createResolvedConfig,
   runAutoCheck,
   checkTask,
+  importOpenClawHistory,
   recordAgentTurn,
   finalizeSession,
   finalizeSessionFromEvent,

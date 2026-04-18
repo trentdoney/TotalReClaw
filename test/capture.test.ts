@@ -1,9 +1,15 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 
 import { createResolvedConfig, executeTotalReClawCommand, finalizeSession, recordAgentTurn } from "../index.ts";
+import { loadSessionSummaries } from "../src/store.ts";
+
+const require = createRequire(import.meta.url);
+type DatabaseSyncCtor = new (location: string) => import("node:sqlite").DatabaseSync;
+const { DatabaseSync } = require("node:sqlite") as { DatabaseSync: DatabaseSyncCtor };
 
 function makeConfig(root: string) {
   return createResolvedConfig(
@@ -17,6 +23,64 @@ function makeConfig(root: string) {
     },
     root,
   );
+}
+
+function seedOpenClawHistory(dbPath: string): void {
+  const db = new DatabaseSync(dbPath);
+  try {
+    db.exec(`
+      CREATE TABLE conversations (
+        conversation_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT NOT NULL,
+        title TEXT,
+        bootstrapped_at TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE TABLE messages (
+        message_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        conversation_id INTEGER NOT NULL REFERENCES conversations(conversation_id) ON DELETE CASCADE,
+        seq INTEGER NOT NULL,
+        role TEXT NOT NULL CHECK (role IN ('system', 'user', 'assistant', 'tool')),
+        content TEXT NOT NULL,
+        token_count INTEGER NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        UNIQUE (conversation_id, seq)
+      );
+    `);
+
+    db.prepare(
+      `
+        INSERT INTO conversations (conversation_id, session_id, title, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?)
+      `,
+    ).run(1, "hist-sess-1", "Gateway restart postmortem", "2026-04-10T18:00:00.000Z", "2026-04-10T18:05:00.000Z");
+
+    const insertMessage = db.prepare(
+      `
+        INSERT INTO messages (conversation_id, seq, role, content, token_count, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `,
+    );
+    insertMessage.run(
+      1,
+      1,
+      "user",
+      "OpenClaw gateway restart keeps failing after the plugin install.",
+      12,
+      "2026-04-10T18:00:10.000Z",
+    );
+    insertMessage.run(
+      1,
+      2,
+      "assistant",
+      "Root cause: we used an invented CLI command. Fix: run openclaw gateway restart and check openclaw gateway status first. Outcome: restart worked.",
+      28,
+      "2026-04-10T18:04:10.000Z",
+    );
+  } finally {
+    db.close();
+  }
 }
 
 describe("capture flow", () => {
@@ -133,5 +197,29 @@ describe("capture flow", () => {
 
     const recall = await executeTotalReClawCommand('recall "remote plugin config on the target host"', config);
     expect(recall.text).toContain("Verdict: no_match");
+  });
+
+  it("imports historical OpenClaw sessions and accepts them into durable memory", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "totalreclaw-import-"));
+    roots.push(root);
+    const config = makeConfig(root);
+    const historyDb = path.join(root, "lcm.db");
+    seedOpenClawHistory(historyDb);
+
+    const imported = await executeTotalReClawCommand(`session import --db ${historyDb} --accept`, config);
+    expect(imported.text).toContain("Created drafts: 1");
+    expect(imported.text).toContain("Accepted sessions: 1");
+
+    const summary = await executeTotalReClawCommand("summary --latest", config);
+    expect(summary.text).toContain("Session: hist-sess-1");
+
+    const recall = await executeTotalReClawCommand('recall "gateway restart wrong cli command"', config);
+    expect(recall.text).toContain("Verdict: prior_fix_found");
+
+    const reimported = await executeTotalReClawCommand(`session import --db ${historyDb} --accept`, config);
+    expect(reimported.text).toContain("Skipped existing: 1");
+
+    const summaries = await loadSessionSummaries(config);
+    expect(summaries).toHaveLength(1);
   });
 });

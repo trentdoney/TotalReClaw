@@ -12,7 +12,7 @@ OpenClaw is a tool-using agent runtime that can load local skills and plugins, s
 
 It is built for operator workflows where "what did we already learn?" matters as much as the next command.
 
-Status: alpha. The install path, storage model, commands, and automatic hooks are in place. Expect breaking changes before `1.0.0` while the project broadens host validation and release coverage.
+Status: public alpha. The install path, storage model, commands, historical-session import, and automatic hooks are in place. Expect breaking changes before `1.0.0` while the project broadens host validation and release coverage.
 
 ## Origin
 
@@ -23,6 +23,7 @@ TotalReClaw was first built as a four-person hackathon collaboration in Phoenix,
 - injects relevant prior context before a risky operational prompt
 - captures new operational records as reviewable drafts instead of silently writing memory
 - accumulates live session context and turns it into a review draft on session close
+- imports historical OpenClaw conversations so old session context can become durable recall
 - stores accepted memory in local SQLite and keeps drafts/session buffers in plain JSON
 - explains why a recommendation was surfaced and flags conflicting memory instead of hiding it
 
@@ -81,6 +82,7 @@ Expected result after remote verify:
 /totalreclaw summary --latest|--session <id>
 /totalreclaw timeline --session <id>|"<query>"
 /totalreclaw session close [--current|--session <id>]
+/totalreclaw session import [--db <path>] [--limit <n>] [--conversation <id>|--session <id>] [--accept]
 /totalreclaw capture --file <path>
 /totalreclaw capture --stdin "<summary>"
 /totalreclaw capture --accept <draft-id>
@@ -155,6 +157,12 @@ Close the current session into a draft:
 /totalreclaw session close --current
 ```
 
+Backfill historical OpenClaw sessions into durable memory:
+
+```text
+/totalreclaw session import --accept --limit 25
+```
+
 Inspect accepted session memory later:
 
 ```text
@@ -171,6 +179,8 @@ TotalReClaw has two automatic plugin hooks:
 - `agent_end`: accumulates session context so a later `session close` can turn it into a review draft
 
 Memory is never blindly auto-accepted. The automatic path only creates context or drafts. Durable records require an explicit accept step.
+
+Historical import follows the same model unless you explicitly pass `--accept`. That makes it safe to review imported drafts first, or to fast-track an existing OpenClaw history backfill when you need a live demo.
 
 ## Configuration
 

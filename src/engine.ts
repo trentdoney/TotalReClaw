@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
+import { createRequire } from "node:module";
+import { homedir } from "node:os";
 import path from "node:path";
+import type { DatabaseSync } from "node:sqlite";
 
 import { resolveConfig } from "./config.ts";
 import { redactSensitiveText } from "./redact.ts";
@@ -41,6 +44,10 @@ import type {
   SessionRef,
   SessionSummary,
 } from "./types.ts";
+
+const require = createRequire(import.meta.url);
+type DatabaseSyncCtor = new (location: string) => DatabaseSync;
+let databaseSyncCtor: DatabaseSyncCtor | null = null;
 
 const STOPWORDS = new Set([
   "a",
@@ -97,6 +104,31 @@ const BLOCKER_PATTERN = /\b(blocked|blocking|waiting on|can't proceed|cannot pro
 const OUTCOME_PATTERN = /\b(outcome|result|resolved|finished|completed|shipped|working|success)\b/i;
 const ENV_PATTERN = /\b(path|directory|host|hostname|version|os|environment|macos|linux|node|openclaw|telegram|remote)\b/i;
 
+function getDatabaseSyncCtor(): DatabaseSyncCtor {
+  if (databaseSyncCtor) {
+    return databaseSyncCtor;
+  }
+
+  try {
+    const loaded = require("node:sqlite") as { DatabaseSync?: DatabaseSyncCtor };
+    if (typeof loaded.DatabaseSync !== "function") {
+      throw new Error("DatabaseSync export was not available");
+    }
+    databaseSyncCtor = loaded.DatabaseSync;
+    return databaseSyncCtor;
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `TotalReClaw requires the Node.js core node:sqlite API. Upgrade the host runtime to a Node 22 build with node:sqlite support before importing OpenClaw history (${reason}).`,
+    );
+  }
+}
+
+function openReadonlyDatabase(dbPath: string): DatabaseSync {
+  const DatabaseSync = getDatabaseSyncCtor();
+  return new DatabaseSync(dbPath);
+}
+
 function clamp(value: number): number {
   return Math.max(0, Math.min(1, value));
 }
@@ -107,6 +139,16 @@ function round(value: number): number {
 
 function normalizeText(input: string): string {
   return input.toLowerCase().replace(/[`*_>#]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function expandHomePath(input: string): string {
+  if (input === "~") {
+    return homedir();
+  }
+  if (input.startsWith("~/")) {
+    return path.join(homedir(), input.slice(2));
+  }
+  return input;
 }
 
 function tokenize(input: string): string[] {
@@ -1112,6 +1154,24 @@ function deriveSessionRef(event: Record<string, unknown>, ctx?: Record<string, u
   };
 }
 
+function appendSignals(
+  accumulator: SessionAccumulator,
+  texts: string[],
+  limits: { texts: number; commands: number; files: number; tools: number } = {
+    texts: 24,
+    commands: 16,
+    files: 20,
+    tools: 16,
+  },
+): void {
+  accumulator.texts = Array.from(new Set([...accumulator.texts, ...texts])).slice(-limits.texts);
+  accumulator.commands = Array.from(new Set([...accumulator.commands, ...texts.flatMap(extractCommands)])).slice(
+    -limits.commands,
+  );
+  accumulator.files = Array.from(new Set([...accumulator.files, ...texts.flatMap(extractFiles)])).slice(-limits.files);
+  accumulator.tools = Array.from(new Set([...accumulator.tools, ...texts.flatMap(extractTools)])).slice(-limits.tools);
+}
+
 function inferGoalFromTexts(texts: string[]): string {
   for (const text of texts) {
     const first = splitParagraphs(text)[0];
@@ -1272,6 +1332,196 @@ function buildLinkedRecords(accumulator: SessionAccumulator, endedAt: string): M
   return records;
 }
 
+function buildSessionDraftFromAccumulator(
+  accumulator: SessionAccumulator,
+  endedAt: string,
+  note: string,
+): DraftRecord {
+  const sessionSummary = buildSessionSummaryFromAccumulator(accumulator, endedAt);
+  const linkedRecords = buildLinkedRecords(accumulator, endedAt);
+  sessionSummary.linked_record_ids = linkedRecords.map((record) => record.record_id);
+
+  return {
+    draft_id: createDraftId(),
+    draft_type: "session_summary",
+    status: "pending",
+    created_at: endedAt,
+    raw_excerpt: stableExcerpt(accumulator.texts.join("\n"), 600),
+    notes: [note],
+    needs_llm_generation: true,
+    session_summary: sessionSummary,
+    linked_records: linkedRecords,
+  };
+}
+
+type ImportedConversation = {
+  conversation_id: number;
+  session_id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type ImportedMessage = {
+  seq: number;
+  role: string;
+  content: string;
+  created_at: string;
+};
+
+function stripTelegramMetadata(text: string): string {
+  return text
+    .replace(/Conversation info \(untrusted metadata\):\s*```json[\s\S]*?```/gi, "")
+    .replace(/Sender \(untrusted metadata\):\s*```json[\s\S]*?```/gi, "")
+    .replace(/\[\[reply_to_current\]\]\s*/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isToolNoise(text: string): boolean {
+  if (/SOUL\.md|USER\.md|BOOTSTRAP\.md/i.test(text)) {
+    return true;
+  }
+  if (/ENOENT: no such file or directory, access '.*workspace\/memory/i.test(text)) {
+    return true;
+  }
+  return false;
+}
+
+function normalizeImportedMessage(role: string, content: string): string | null {
+  const cleaned = stripTelegramMetadata(redactSensitiveText(content));
+  if (!cleaned) {
+    return null;
+  }
+  if (role === "assistant" && /^✅ New session started\b/i.test(cleaned)) {
+    return null;
+  }
+  if (role === "user" && /A new session was started via \/new or \/reset\./i.test(cleaned)) {
+    return null;
+  }
+  if (role === "tool") {
+    if (isToolNoise(cleaned)) {
+      return null;
+    }
+    if (!/(openclaw|totalreclaw|ssh|error|failed|resolved|restart|config|plugin|gateway|write|sqlite|token|pairing|unauthorized|install|path)/i.test(cleaned)) {
+      return null;
+    }
+  }
+  return cleaned;
+}
+
+function inferImportedGoal(title: string, messages: ImportedMessage[]): string {
+  if (title.trim()) {
+    return title.trim().slice(0, 180);
+  }
+
+  for (const message of messages) {
+    if (message.role !== "user") {
+      continue;
+    }
+    const cleaned = normalizeImportedMessage(message.role, message.content);
+    if (!cleaned) {
+      continue;
+    }
+    return inferGoalFromTexts([cleaned]);
+  }
+
+  for (const message of messages) {
+    const cleaned = normalizeImportedMessage(message.role, message.content);
+    if (cleaned) {
+      return inferGoalFromTexts([cleaned]);
+    }
+  }
+
+  return "Imported OpenClaw session";
+}
+
+function buildImportedAccumulator(
+  conversation: ImportedConversation,
+  messages: ImportedMessage[],
+  dbPath: string,
+): SessionAccumulator | null {
+  const relevantTexts = messages
+    .map((message) => normalizeImportedMessage(message.role, message.content))
+    .filter((entry): entry is string => Boolean(entry));
+  if (relevantTexts.length === 0) {
+    return null;
+  }
+
+  const startedAt = conversation.created_at || messages[0]?.created_at || new Date().toISOString();
+  const updatedAt =
+    conversation.updated_at || messages[messages.length - 1]?.created_at || conversation.created_at || startedAt;
+  const sessionId = conversation.session_id || createSessionId(`${dbPath}|${conversation.conversation_id}`);
+  const accumulator: SessionAccumulator = {
+    session_id: sessionId,
+    session_key: `openclaw:history:${sessionId}`,
+    channel_id: "",
+    source_surface: "openclaw",
+    started_at: startedAt,
+    updated_at: updatedAt,
+    goal: inferImportedGoal(conversation.title, messages),
+    texts: [],
+    commands: [],
+    files: [],
+    tools: [],
+    source_pointer: `${dbPath}#conversation=${conversation.conversation_id}`,
+  };
+  appendSignals(accumulator, relevantTexts, { texts: 64, commands: 24, files: 24, tools: 24 });
+  return accumulator;
+}
+
+function readImportedConversations(
+  dbPath: string,
+  options: { sessionId?: string; conversationId?: string; limit?: number },
+): ImportedConversation[] {
+  const db = openReadonlyDatabase(dbPath);
+  try {
+    const clauses: string[] = [];
+    const params: Array<string | number> = [];
+    if (options.sessionId) {
+      clauses.push("session_id = ?");
+      params.push(options.sessionId);
+    }
+    if (options.conversationId) {
+      clauses.push("conversation_id = ?");
+      params.push(Number.parseInt(options.conversationId, 10));
+    }
+    const where = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
+    const limit =
+      options.sessionId || options.conversationId
+        ? ""
+        : `LIMIT ${Math.max(1, Math.min(options.limit ?? 10, 200))}`;
+    const sql = `
+      SELECT conversation_id, session_id, IFNULL(title, '') AS title, created_at, updated_at
+      FROM conversations
+      ${where}
+      ORDER BY updated_at DESC, conversation_id DESC
+      ${limit}
+    `;
+    return db.prepare(sql).all(...params) as ImportedConversation[];
+  } finally {
+    db.close();
+  }
+}
+
+function readConversationMessages(dbPath: string, conversationId: number): ImportedMessage[] {
+  const db = openReadonlyDatabase(dbPath);
+  try {
+    return db
+      .prepare(
+        `
+          SELECT seq, role, content, created_at
+          FROM messages
+          WHERE conversation_id = ?
+          ORDER BY seq ASC, message_id ASC
+        `,
+      )
+      .all(conversationId) as ImportedMessage[];
+  } finally {
+    db.close();
+  }
+}
+
 export async function recordAgentTurn(
   rawEvent: Record<string, unknown>,
   rawCtx: Record<string, unknown> | undefined,
@@ -1307,10 +1557,7 @@ export async function recordAgentTurn(
 
   accumulator.updated_at = now;
   accumulator.goal = accumulator.goal || inferGoalFromTexts(texts);
-  accumulator.texts = Array.from(new Set([...accumulator.texts, ...texts])).slice(-24);
-  accumulator.commands = Array.from(new Set([...accumulator.commands, ...texts.flatMap(extractCommands)])).slice(-16);
-  accumulator.files = Array.from(new Set([...accumulator.files, ...texts.flatMap(extractFiles)])).slice(-20);
-  accumulator.tools = Array.from(new Set([...accumulator.tools, ...texts.flatMap(extractTools)])).slice(-16);
+  appendSignals(accumulator, texts);
 
   await saveSessionAccumulator(config.sessionStatePath, accumulator);
   return accumulator;
@@ -1346,21 +1593,7 @@ export async function finalizeSession(
   }
 
   const closedAt = new Date().toISOString();
-  const sessionSummary = buildSessionSummaryFromAccumulator(accumulator, closedAt);
-  const linkedRecords = buildLinkedRecords(accumulator, closedAt);
-  sessionSummary.linked_record_ids = linkedRecords.map((record) => record.record_id);
-
-  const draft: DraftRecord = {
-    draft_id: createDraftId(),
-    draft_type: "session_summary",
-    status: "pending",
-    created_at: closedAt,
-    raw_excerpt: stableExcerpt(accumulator.texts.join("\n"), 600),
-    notes: ["Session finalized into a review draft."],
-    needs_llm_generation: true,
-    session_summary: sessionSummary,
-    linked_records: linkedRecords,
-  };
+  const draft = buildSessionDraftFromAccumulator(accumulator, closedAt, "Session finalized into a review draft.");
 
   const filePath = await saveDraft(config.draftPath, draft);
   await deleteSessionAccumulator(config.sessionStatePath, accumulator.session_key);
@@ -1369,17 +1602,17 @@ export async function finalizeSession(
     text: [
       `Session draft created: ${draft.draft_id}`,
       `Draft file: ${filePath}`,
-      `Session: ${sessionSummary.session_id}`,
-      `Goal: ${sessionSummary.goal}`,
-      `Outcome: ${sessionSummary.outcome}`,
-      `Linked records: ${linkedRecords.length}`,
+      `Session: ${draft.session_summary?.session_id ?? "unknown"}`,
+      `Goal: ${draft.session_summary?.goal ?? "unknown"}`,
+      `Outcome: ${draft.session_summary?.outcome ?? "unknown"}`,
+      `Linked records: ${draft.linked_records.length}`,
       "",
       `Accept it with: /totalreclaw capture --accept ${draft.draft_id}`,
     ].join("\n"),
     details: {
       draft_id: draft.draft_id,
-      session_id: sessionSummary.session_id,
-      linked_record_ids: linkedRecords.map((record) => record.record_id),
+      session_id: draft.session_summary?.session_id ?? "",
+      linked_record_ids: draft.linked_records.map((record) => record.record_id),
       draft_path: filePath,
     },
   };
@@ -1392,6 +1625,125 @@ export async function finalizeSessionFromEvent(
 ): Promise<CommandExecution> {
   const session = deriveSessionRef(rawEvent, rawCtx);
   return finalizeSession(session.session_key, config);
+}
+
+export async function importOpenClawHistory(
+  options: {
+    dbPath?: string;
+    limit?: number;
+    sessionId?: string;
+    conversationId?: string;
+    accept?: boolean;
+  },
+  config: ResolvedConfig,
+): Promise<CommandExecution> {
+  await ensureStoreReady(config);
+
+  const dbPath = path.resolve(expandHomePath(options.dbPath ?? path.join(homedir(), ".openclaw", "lcm.db")));
+  await fs.access(dbPath);
+
+  const [existingSummaries, drafts] = await Promise.all([loadSessionSummaries(config), listDrafts(config.draftPath)]);
+  const acceptedSessionIds = new Set(existingSummaries.map((entry) => entry.session_id));
+  const pendingSessionIds = new Set(
+    drafts
+      .filter((entry) => entry.draft_type === "session_summary")
+      .map((entry) => entry.session_summary?.session_id)
+      .filter((entry): entry is string => Boolean(entry)),
+  );
+
+  const conversations = readImportedConversations(dbPath, {
+    sessionId: options.sessionId,
+    conversationId: options.conversationId,
+    limit: options.limit,
+  });
+  if (conversations.length === 0) {
+    throw new Error(`No OpenClaw conversations matched in ${dbPath}.`);
+  }
+
+  let createdDrafts = 0;
+  let accepted = 0;
+  let skippedExisting = 0;
+  let skippedEmpty = 0;
+  const importedSummaries: SessionSummary[] = [];
+  const importedDraftIds: string[] = [];
+
+  for (const conversation of conversations) {
+    const sessionId = conversation.session_id || createSessionId(`${dbPath}|${conversation.conversation_id}`);
+    if (acceptedSessionIds.has(sessionId) || pendingSessionIds.has(sessionId)) {
+      skippedExisting += 1;
+      continue;
+    }
+
+    const messages = readConversationMessages(dbPath, conversation.conversation_id);
+    const accumulator = buildImportedAccumulator(conversation, messages, dbPath);
+    if (!accumulator) {
+      skippedEmpty += 1;
+      continue;
+    }
+
+    const draft = buildSessionDraftFromAccumulator(
+      accumulator,
+      accumulator.updated_at || new Date().toISOString(),
+      `Imported from OpenClaw history conversation ${conversation.conversation_id}.`,
+    );
+    const filePath = await saveDraft(config.draftPath, draft);
+    createdDrafts += 1;
+    importedDraftIds.push(draft.draft_id);
+
+    if (options.accept) {
+      await acceptDraft(draft.draft_id, config);
+      accepted += 1;
+      acceptedSessionIds.add(draft.session_summary?.session_id ?? sessionId);
+    } else {
+      pendingSessionIds.add(draft.session_summary?.session_id ?? sessionId);
+    }
+
+    if (draft.session_summary) {
+      importedSummaries.push(draft.session_summary);
+    }
+
+    if (!options.accept) {
+      void filePath;
+    }
+  }
+
+  const lines = [
+    `Historical import source: ${dbPath}`,
+    `Matched conversations: ${conversations.length}`,
+    `Created drafts: ${createdDrafts}`,
+    `Accepted sessions: ${accepted}`,
+    `Skipped existing: ${skippedExisting}`,
+    `Skipped empty: ${skippedEmpty}`,
+  ];
+
+  if (importedSummaries.length > 0) {
+    lines.push("", "Imported sessions:");
+    for (const summary of importedSummaries.slice(0, 8)) {
+      lines.push(`- ${summary.session_id} | ${summary.goal}`);
+    }
+  }
+
+  if (!options.accept && importedDraftIds.length > 0) {
+    lines.push("", `Accept one with: /totalreclaw capture --accept ${importedDraftIds[0]}`);
+  }
+  lines.push("", "Then verify with:");
+  lines.push("- /totalreclaw sessions");
+  lines.push("- /totalreclaw summary --latest");
+  lines.push('- /totalreclaw recall "gateway restart wrong CLI command"');
+
+  return {
+    text: lines.join("\n"),
+    details: {
+      dbPath,
+      matched_conversations: conversations.length,
+      created_drafts: createdDrafts,
+      accepted_sessions: accepted,
+      skipped_existing: skippedExisting,
+      skipped_empty: skippedEmpty,
+      draft_ids: importedDraftIds,
+      session_ids: importedSummaries.map((entry) => entry.session_id),
+    },
+  };
 }
 
 export async function listSessions(query: string | undefined, config: ResolvedConfig): Promise<CommandExecution> {

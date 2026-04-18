@@ -1,6 +1,6 @@
 {
   "name": "totalreclaw",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "OpenClaw operational memory that recalls prior records and session context before agents repeat work.",
   "type": "module",
   "main": "index.ts",

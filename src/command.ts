@@ -8,6 +8,7 @@ import {
   finalizeSession,
   getSessionSummaryCommand,
   getSessionTimelineCommand,
+  importOpenClawHistory,
   listSessions,
   loadCaptureFile,
   resolveConflict,
@@ -64,6 +65,7 @@ function usage(): CommandExecution {
       "/totalreclaw summary --latest|--session <id>",
       "/totalreclaw timeline --session <id>|\"<query>\"",
       "/totalreclaw session close [--current|--session <id>]",
+      "/totalreclaw session import [--db <path>] [--limit <n>] [--conversation <id>|--session <id>] [--accept]",
       "/totalreclaw capture --file <path>",
       "/totalreclaw capture --stdin \"<summary>\"",
       "/totalreclaw capture --accept <draft-id>",
@@ -158,12 +160,24 @@ export async function executeTotalReClawCommand(
 
   if (subcommand === "session") {
     const action = tokens.shift()?.toLowerCase();
-    if (action !== "close") {
-      throw new Error("session supports only `close`.");
+    if (action === "close") {
+      const sessionId = readOption(tokens, "--session");
+      const current = hasFlag(tokens, "--current");
+      return finalizeSession(current ? "current" : sessionId, config);
     }
-    const sessionId = readOption(tokens, "--session");
-    const current = hasFlag(tokens, "--current");
-    return finalizeSession(current ? "current" : sessionId, config);
+    if (action === "import") {
+      const sessionId = readOption(tokens, "--session");
+      const conversationId = readOption(tokens, "--conversation");
+      const dbPath = readOption(tokens, "--db");
+      const accept = hasFlag(tokens, "--accept");
+      const limitRaw = readOption(tokens, "--limit");
+      const limit = limitRaw ? Number.parseInt(limitRaw, 10) : undefined;
+      if (limitRaw && !Number.isFinite(limit)) {
+        throw new Error("session import --limit must be an integer.");
+      }
+      return importOpenClawHistory({ dbPath, limit, sessionId, conversationId, accept }, config);
+    }
+    throw new Error("session supports `close` and `import`.");
   }
 
   if (subcommand === "capture") {
