@@ -10,7 +10,7 @@ Do not open public issues for suspected vulnerabilities.
 
 Report security problems through GitHub private vulnerability reporting:
 
-- `https://github.com/trentdoney/TotalReClaw/security/advisories/new`
+- `https://github.com/SynapseGrid-Labs/TotalReClaw/security/advisories/new`
 
 Include:
 
