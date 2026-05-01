@@ -1,7 +1,7 @@
 # TotalReClaw
 
-[![CI](https://github.com/trentdoney/TotalReClaw/actions/workflows/ci.yml/badge.svg)](https://github.com/trentdoney/TotalReClaw/actions/workflows/ci.yml)
-[![License](https://img.shields.io/github/license/trentdoney/TotalReClaw)](LICENSE)
+[![CI](https://github.com/SynapseGrid-Labs/TotalReClaw/actions/workflows/ci.yml/badge.svg)](https://github.com/SynapseGrid-Labs/TotalReClaw/actions/workflows/ci.yml)
+[![License](https://img.shields.io/github/license/SynapseGrid-Labs/TotalReClaw)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.14.0-339933?logo=nodedotjs&logoColor=white)](package.json)
 
 ![TotalReClaw header](docs/images/totalreclaw-header-vip.svg)
