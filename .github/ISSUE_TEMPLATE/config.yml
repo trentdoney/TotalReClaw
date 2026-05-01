@@ -1,5 +1,5 @@
 blank_issues_enabled: false
 contact_links:
   - name: Security report
-    url: https://github.com/trentdoney/TotalReClaw/security/advisories/new
+    url: https://github.com/SynapseGrid-Labs/TotalReClaw/security/advisories/new
     about: Please report security-sensitive issues through GitHub private advisories.
