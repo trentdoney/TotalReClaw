@@ -28,6 +28,11 @@ function makeConfig(root: string) {
 function seedOpenClawHistory(dbPath: string): void {
   const db = new DatabaseSync(dbPath);
   try {
+    const now = Date.now();
+    const conversationStartedAt = new Date(now - 4 * 60_000).toISOString();
+    const userMessageAt = new Date(now - 3 * 60_000).toISOString();
+    const assistantMessageAt = new Date(now - 60_000).toISOString();
+
     db.exec(`
       CREATE TABLE conversations (
         conversation_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -54,7 +59,7 @@ function seedOpenClawHistory(dbPath: string): void {
         INSERT INTO conversations (conversation_id, session_id, title, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?)
       `,
-    ).run(1, "hist-sess-1", "Gateway restart postmortem", "2026-04-10T18:00:00.000Z", "2026-04-10T18:05:00.000Z");
+    ).run(1, "hist-sess-1", "Gateway restart postmortem", conversationStartedAt, assistantMessageAt);
 
     const insertMessage = db.prepare(
       `
@@ -68,7 +73,7 @@ function seedOpenClawHistory(dbPath: string): void {
       "user",
       "OpenClaw gateway restart keeps failing after the plugin install.",
       12,
-      "2026-04-10T18:00:10.000Z",
+      userMessageAt,
     );
     insertMessage.run(
       1,
@@ -76,7 +81,7 @@ function seedOpenClawHistory(dbPath: string): void {
       "assistant",
       "Root cause: we used an invented CLI command. Fix: run openclaw gateway restart and check openclaw gateway status first. Outcome: restart worked.",
       28,
-      "2026-04-10T18:04:10.000Z",
+      assistantMessageAt,
     );
   } finally {
     db.close();
